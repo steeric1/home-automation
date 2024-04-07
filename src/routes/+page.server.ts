@@ -1,12 +1,14 @@
 import fs from "fs/promises";
 
 import { fail } from "@sveltejs/kit";
-import type { Actions, PageServerLoad } from "./$types";
+import type { Actions } from "./$types";
 
 import { SECRET_NUMBERS_FILE } from "$env/static/private";
 
 export const actions: Actions = {
     default: async ({ request }) => {
+        console.log("here");
+
         const data = await request.formData();
         const nearDepartureTime = data.get("nearDepartureTime");
 

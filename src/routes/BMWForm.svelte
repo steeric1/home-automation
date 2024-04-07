@@ -47,6 +47,26 @@
         nearDepartureTime = "";
         farDepartureTime = "";
     }
+
+    function getCurrentTime() {
+        const currentTime = new Date();
+        const currentHours = currentTime.getHours().toString().padStart(2, "0");
+        const currentMinutes = currentTime.getMinutes().toString().padStart(2, "0");
+
+        return `${currentHours}.${currentMinutes}`;
+    }
+
+    let currentTime = getCurrentTime();
+    let now = new Date();
+    setTimeout(
+        () => {
+            currentTime = getCurrentTime();
+            setInterval(() => {
+                currentTime = getCurrentTime();
+            }, 60000);
+        },
+        60000 - (now.getSeconds() * 1000 + now.getMilliseconds())
+    );
 </script>
 
 <form
@@ -60,9 +80,8 @@
         bind:value={nearDepartureTime}
         name="nearDepartureTime"
         id="nearDepartureTime"
-        description="Matkan alun kellonaika, tätä päivää"
+        description={`Matkan alun kellonaika. Ennen ${currentTime} annetut ajat viittaavat huomiseen.`}
         required={bothEmpty}
-        currentMinTime
     >
         <p class="text-sm">
             <span class="text-base font-semibold">Lähtöaika</span> (Pusula/Nummela)
@@ -73,9 +92,8 @@
         bind:value={farDepartureTime}
         name="farDepartureTime"
         id="farDepartureTime"
-        description="Matkan alun kellonaika, tätä päivää"
+        description={`Matkan alun kellonaika. Ennen ${currentTime} annetut ajat viittaavat huomiseen.`}
         required={bothEmpty}
-        currentMinTime
     >
         <p class="text-sm">
             <span class="text-base font-semibold">Lähtöaika</span> (kauemmaksi)

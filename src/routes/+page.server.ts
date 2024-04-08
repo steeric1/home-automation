@@ -1,16 +1,36 @@
 import fs from "fs/promises";
 
-import { fail } from "@sveltejs/kit";
-import type { Actions } from "./$types";
+import { fail, type ActionFailure } from "@sveltejs/kit";
+import type { Actions, PageServerLoad } from "./$types";
 
 import { DEPARTURES_FILE } from "$env/static/private";
+import type { Departure } from "$lib/types";
+import { departureTimePoiLabels } from "$lib/const";
+
+export const load: PageServerLoad = async ({ params }) => {
+    let departuresList: Departure[] | null = null;
+
+    try {
+        const departures = (await fs.readFile(DEPARTURES_FILE, { encoding: "utf-8" })).toString();
+        departuresList = departures
+            .split("\n")
+            .filter((line) => line.length > 0)
+            .map((line) => line.split(" "))
+            .map(([timestamp, poi]) => ({ timestamp, poi }));
+    } catch (err) {
+        console.error(err);
+    }
+
+    return { departures: departuresList };
+};
 
 export const actions: Actions = {
-    default: async ({ request }) => {
+    submitDepartures: async ({ request }) => {
         const data = await request.formData();
 
         try {
-            await handleDepartureTimes(data);
+            const failure = await handleDepartureTimes(data);
+            if (failure) return failure;
         } catch (err) {
             return fail(500);
         }
@@ -19,18 +39,34 @@ export const actions: Actions = {
     }
 };
 
-async function handleDepartureTimes(data: FormData) {
-    const [near, far] = [data.get("nearDepartureTime"), data.get("farDepartureTime")];
+async function handleDepartureTimes(data: FormData): Promise<ActionFailure<undefined> | null> {
+    const [near, far, raw] = [
+        data.get("nearDepartureTime")?.toString(),
+        data.get("farDepartureTime")?.toString(),
+        data.get("rawDepartureTime")?.toString()
+    ];
 
     if (near) {
-        const nextNearTimestamp = getNextTimestamp(near.toString()).toISOString();
-        await fs.appendFile(DEPARTURES_FILE, `${nextNearTimestamp} Pusula/Nummela\n`);
+        const nextNearTimestamp = getNextTimestamp(near).toISOString();
+        await fs.appendFile(
+            DEPARTURES_FILE,
+            `${nextNearTimestamp} ${departureTimePoiLabels.near}\n`
+        );
     }
 
     if (far) {
-        const nextFarTimestamp = getNextTimestamp(far.toString()).toISOString();
-        await fs.appendFile(DEPARTURES_FILE, `${nextFarTimestamp} kauemmaksi\n`);
+        const nextFarTimestamp = getNextTimestamp(far).toISOString();
+        await fs.appendFile(DEPARTURES_FILE, `${nextFarTimestamp} ${departureTimePoiLabels.far}\n`);
     }
+
+    if (raw) {
+        const departureTimeRegex = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z) (\S.*)/;
+        if (!departureTimeRegex.test(raw)) return fail(400);
+
+        await fs.appendFile(DEPARTURES_FILE, `${raw}\n`);
+    }
+
+    return null;
 }
 
 function getNextTimestamp(targetTime: string): Date {

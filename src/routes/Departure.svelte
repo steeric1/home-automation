@@ -48,7 +48,9 @@
             error: "Lähtöaikaa ei voitu poistaa.",
             action: {
                 label: "Kumoa",
-                onClick: () => dispatch("undoDelete")
+                onClick: () => {
+                    dispatch("undoDelete");
+                }
             }
         });
     }

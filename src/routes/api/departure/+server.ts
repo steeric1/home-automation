@@ -55,28 +55,38 @@ async function handleDepartureTimes(data: FormData) {
         data.get("rawDepartureTime")?.toString()
     ];
 
+    const departures = (await fs.readFile(DEPARTURES_FILE, { encoding: "utf-8" }))
+        .toString()
+        .trimEnd()
+        .split("\n")
+        .map((line) => line.split(" "));
+
+    function ensureNoDuplicate(timestamp: string) {
+        if (departures.find(([ts, _]) => ts === timestamp))
+            throw new RequestError("Samaa lähtöaikaa ei voi ilmoittaa kahta kertaa.", 400);
+    }
+
     if (near) {
-        const nextNearTimestamp = getNextTimestamp(near).toISOString();
-        await fs.appendFile(
-            DEPARTURES_FILE,
-            `${nextNearTimestamp} ${departureTimePoiLabels.near}\n`
-        );
+        const nextTimestamp = getNextTimestamp(near).toISOString();
+        ensureNoDuplicate(nextTimestamp);
+
+        await fs.appendFile(DEPARTURES_FILE, `${nextTimestamp} ${departureTimePoiLabels.near}\n`);
     }
 
     if (far) {
-        const nextFarTimestamp = getNextTimestamp(far).toISOString();
-        await fs.appendFile(DEPARTURES_FILE, `${nextFarTimestamp} ${departureTimePoiLabels.far}\n`);
+        const nextTimestamp = getNextTimestamp(far).toISOString();
+        ensureNoDuplicate(nextTimestamp);
+
+        await fs.appendFile(DEPARTURES_FILE, `${nextTimestamp} ${departureTimePoiLabels.far}\n`);
     }
 
     if (raw) {
         const departureTimeRegex = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z) (\S.*)/;
-        if (!departureTimeRegex.test(raw))
-            throw new RequestError("invalid departure time format", 400);
+        if (!departureTimeRegex.test(raw)) throw new RequestError("Lähtöajan muoto on väärä.", 400);
 
+        ensureNoDuplicate(raw.split(" ")[0]);
         await fs.appendFile(DEPARTURES_FILE, `${raw}\n`);
     }
-
-    return null;
 }
 
 function getNextTimestamp(targetTime: string): Date {

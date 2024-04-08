@@ -29,6 +29,6 @@ export const actions: Actions = {
         const response = await POST_DEPARTURE(event);
         const body = await response.json();
 
-        return response.ok ? { success: true } : fail(response.status, body);
+        return response.ok ? { success: true } : fail(response.status, body || {});
     }
 };

@@ -1,7 +1,7 @@
 <script lang="ts">
     import { invalidateAll } from "$app/navigation";
     import { enhance, applyAction, deserialize } from "$app/forms";
-    import { writable, type Writable } from "svelte/store";
+    import { writable, type Unsubscriber, type Writable } from "svelte/store";
     import type { ActionData } from "./$types";
     import type { ActionResult } from "@sveltejs/kit";
 
@@ -18,26 +18,35 @@
     export let form: ActionData;
     export let departures: Departure[] | null;
 
+    $: departuresWithId =
+        departures?.map((dep) => {
+            return { id: Math.floor(Math.random() * 1e9), ...dep };
+        }) || [];
+
     let classes = "max-w-md space-y-6";
     export { classes as class };
 
-    const formValid: Writable<boolean | null> = writable(null);
+    const formValid: Writable<{ success: boolean; message: string } | null> = writable(null);
 
     $: if (form) {
-        formValid.set(!!form.success);
+        formValid.set({ success: !!form.success, message: form.message });
     }
 
     let nearDepartureTime: string, farDepartureTime: string;
     $: bothEmpty = !nearDepartureTime && !farDepartureTime;
 
     function showSubmissionToast() {
-        let promise = new Promise<boolean | null>((resolve) => {
-            const unsubscribe = formValid.subscribe((val) => {
+        let unsubscribe: Unsubscriber;
+        let promise = new Promise<void>((resolve, reject) => {
+            unsubscribe = formValid.subscribe((val) => {
                 if (val !== null) {
-                    resolve(val);
-                    unsubscribe();
-
                     formValid.set(null);
+
+                    if (val.success) {
+                        resolve();
+                    } else {
+                        reject(new Error(val.message));
+                    }
                 }
             });
         });
@@ -45,7 +54,13 @@
         toast.promise(promise, {
             loading: "Lähetetään...",
             success: () => "Tiedot tallennettu.",
-            error: "Tietoa ei voitu tallentaa."
+            error: (error) => {
+                const message = (error as { message: string }).message;
+                return message || "Tietoja ei voitu tallentaa.";
+            },
+            finally: () => {
+                if (unsubscribe) unsubscribe();
+            }
         });
     }
 
@@ -80,9 +95,10 @@
         }
     }
 
-    async function undoDelete(departure: Departure) {
+    async function undoDelete(timestamp: string, poi: string) {
+        console.log(timestamp, poi);
         const data = new FormData();
-        data.append("rawDepartureTime", `${departure.timestamp} ${departure.poi}`);
+        data.append("rawDepartureTime", `${timestamp} ${poi}`);
 
         const response = await fetch("?/submitDepartures", {
             method: "POST",
@@ -149,12 +165,13 @@
     <Tabs.Content value="list">
         {#if departures}
             <ul class="flex flex-col gap-3 p-2">
-                {#each departures as departure, i (i)}
+                {#each departuresWithId as { timestamp, poi, id }, i (id)}
                     <li class="w-full rounded-md border-[1px] border-gray-400 bg-slate-100 p-3">
                         <DepartureItem
-                            {...departure}
+                            {timestamp}
+                            {poi}
                             on:delete={() => deleteDeparture(i)}
-                            on:undoDelete={() => undoDelete(departure)}
+                            on:undoDelete={(e) => undoDelete(timestamp, poi)}
                         />
                     </li>
                 {/each}

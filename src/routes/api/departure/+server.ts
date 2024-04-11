@@ -2,8 +2,12 @@ import fs from "fs/promises";
 
 import { json, type RequestHandler } from "@sveltejs/kit";
 
+import { actionResult, setError, superValidate } from "sveltekit-superforms";
+import { zod } from "sveltekit-superforms/adapters";
+
 import { DEPARTURES_FILE } from "$env/static/private";
 import { departureTimePoiLabels } from "$lib/const";
+import { departureSchema } from "$lib/schemas";
 
 export const DELETE: RequestHandler = async ({ request }) => {
     const { timestamp: rTimestamp, poi: rPoi } = await request.json();
@@ -33,27 +37,29 @@ export const DELETE: RequestHandler = async ({ request }) => {
 };
 
 export const POST: RequestHandler = async ({ request }) => {
-    const data = await request.formData();
+    const form = await superValidate(request, zod(departureSchema));
 
     try {
-        await handleDepartureTimes(data);
+        await handleDepartureTimes(form.data);
     } catch (err) {
         if (err instanceof RequestError) {
-            return json({ message: err.message }, { status: err.status });
+            return actionResult("failure", { form });
         }
 
-        return json(null, { status: 500 });
+        return actionResult("error", "A server error occurred.");
     }
 
-    return json(null, { status: 201 });
+    return actionResult("success", { form });
 };
 
-async function handleDepartureTimes(data: FormData) {
-    const [near, far, raw] = [
-        data.get("nearDepartureTime")?.toString(),
-        data.get("farDepartureTime")?.toString(),
-        data.get("rawDepartureTime")?.toString()
-    ];
+type DepartureTimes = {
+    nearDepartureTime?: string;
+    farDepartureTime?: string;
+    rawDepartureTime?: string;
+};
+
+async function handleDepartureTimes(data: DepartureTimes) {
+    const { nearDepartureTime: near, farDepartureTime: far, rawDepartureTime: raw } = data;
 
     const departures = (await fs.readFile(DEPARTURES_FILE, { encoding: "utf-8" }))
         .toString()

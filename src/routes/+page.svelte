@@ -1,8 +1,12 @@
+<script lang="ts" context="module">
+    import type { PageServerData } from "./$types";
+
+    export type PageForm = PageServerData["form"];
+</script>
+
 <script lang="ts">
-    import type { ActionData, PageServerData } from "./$types";
     import BMWForm from "./BMWForm.svelte";
 
-    export let form: ActionData;
     export let data: PageServerData;
 </script>
 
@@ -11,7 +15,7 @@
     <hr class=" border-gray-400" />
 
     <div class="mx-auto max-w-md space-y-6">
-        <h2 class="text-2xl font-bold tracking-wide">BMW-automatisaatio</h2>
-        <BMWForm {form} departures={data.departures} class="space-y-6" />
+        <h2 class="text-2xl font-semibold tracking-wide">BMW</h2>
+        <BMWForm form={data.form} departures={data.departures} class="space-y-6" />
     </div>
 </div>

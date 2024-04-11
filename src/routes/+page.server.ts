@@ -6,6 +6,9 @@ import { DEPARTURES_FILE } from "$env/static/private";
 import type { Departure } from "$lib/types";
 import { POST as POST_DEPARTURE } from "./api/departure/+server";
 import { fail } from "@sveltejs/kit";
+import { zod } from "sveltekit-superforms/adapters";
+import { departureSchema } from "$lib/schemas";
+import { superValidate } from "sveltekit-superforms";
 
 export const load: PageServerLoad = async ({ params }) => {
     let departuresList: Departure[] | null = null;
@@ -21,10 +24,12 @@ export const load: PageServerLoad = async ({ params }) => {
         console.error(err);
     }
 
-    return { departures: departuresList };
+    const form = await superValidate(zod(departureSchema));
+
+    return { departures: departuresList, form };
 };
 
-export const actions: Actions = {
+/*export const actions: Actions = {
     submitDepartures: async (event) => {
         const response = await POST_DEPARTURE(event);
         const body = await response.json();
@@ -32,3 +37,4 @@ export const actions: Actions = {
         return response.ok ? { success: true } : fail(response.status, body || {});
     }
 };
+*/

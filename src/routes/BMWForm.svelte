@@ -1,11 +1,8 @@
 <script lang="ts">
     import { invalidateAll } from "$app/navigation";
-    import { enhance, applyAction, deserialize } from "$app/forms";
-    import { writable, type Unsubscriber, type Writable } from "svelte/store";
-    import type { ActionData } from "./$types";
+    import { applyAction, deserialize } from "$app/forms";
     import type { ActionResult } from "@sveltejs/kit";
 
-    import { toast } from "svelte-sonner";
     import { Button } from "$lib/components/ui/button";
     import * as Tabs from "$lib/components/ui/tabs";
 
@@ -15,7 +12,10 @@
     import type { Departure } from "$lib/types";
     import DepartureItem from "./Departure.svelte";
 
-    export let form: ActionData;
+    import type { PageForm } from "./+page.svelte";
+    import { createForm } from "$lib/form";
+
+    export let form: PageForm;
     export let departures: Departure[] | null;
 
     $: departuresWithId =
@@ -26,48 +26,9 @@
     let classes = "max-w-md space-y-6";
     export { classes as class };
 
-    const formValid: Writable<{ success: boolean; message: string } | null> = writable(null);
+    const { form: sForm, errors, enhance } = createForm(form);
 
-    $: if (form) {
-        formValid.set({ success: !!form.success, message: form.message });
-    }
-
-    let nearDepartureTime: string, farDepartureTime: string;
-    $: bothEmpty = !nearDepartureTime && !farDepartureTime;
-
-    function showSubmissionToast() {
-        let unsubscribe: Unsubscriber;
-        let promise = new Promise<void>((resolve, reject) => {
-            unsubscribe = formValid.subscribe((val) => {
-                if (val !== null) {
-                    formValid.set(null);
-
-                    if (val.success) {
-                        resolve();
-                    } else {
-                        reject(new Error(val.message));
-                    }
-                }
-            });
-        });
-
-        toast.promise(promise, {
-            loading: "Lähetetään...",
-            success: () => "Tiedot tallennettu.",
-            error: (error) => {
-                const message = (error as { message: string }).message;
-                return message || "Tietoja ei voitu tallentaa.";
-            },
-            finally: () => {
-                if (unsubscribe) unsubscribe();
-            }
-        });
-    }
-
-    function clearInputValues() {
-        nearDepartureTime = "";
-        farDepartureTime = "";
-    }
+    $: bothEmpty = !$sForm.nearDepartureTime && !$sForm.farDepartureTime;
 
     function getCurrentTime() {
         const currentTime = new Date();
@@ -96,16 +57,12 @@
     }
 
     async function undoDelete(timestamp: string, poi: string) {
-        console.log(timestamp, poi);
         const data = new FormData();
         data.append("rawDepartureTime", `${timestamp} ${poi}`);
 
-        const response = await fetch("?/submitDepartures", {
+        const response = await fetch("/api/departure", {
             method: "POST",
-            body: data,
-            headers: {
-                "x-sveltekit-action": "true"
-            }
+            body: data
         });
 
         const result: ActionResult = deserialize(await response.text());
@@ -124,16 +81,9 @@
         <Tabs.Trigger value="list" class="w-full">Lista</Tabs.Trigger>
     </Tabs.List>
     <Tabs.Content value="form">
-        <form
-            use:enhance
-            class={classes}
-            method="POST"
-            action="?/submitDepartures"
-            on:submit={showSubmissionToast}
-            on:submit={clearInputValues}
-        >
+        <form use:enhance class={classes} method="POST" action="/api/departure">
             <TimeInput
-                bind:value={nearDepartureTime}
+                bind:value={$sForm.nearDepartureTime}
                 name="nearDepartureTime"
                 id="nearDepartureTime"
                 description={`Matkan alun kellonaika. Ennen ${currentTime} annetut ajat viittaavat huomiseen.`}
@@ -145,7 +95,7 @@
             </TimeInput>
 
             <TimeInput
-                bind:value={farDepartureTime}
+                bind:value={$sForm.farDepartureTime}
                 name="farDepartureTime"
                 id="farDepartureTime"
                 description={`Matkan alun kellonaika. Ennen ${currentTime} annetut ajat viittaavat huomiseen.`}

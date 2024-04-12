@@ -25,6 +25,11 @@
             return { id: Math.floor(Math.random() * 1e9), ...dep };
         }) || [];
 
+    $: departuresSorted = departuresWithId.sort((a, b) => {
+        let [dateA, dateB] = [new Date(a.timestamp), new Date(b.timestamp)];
+        return dateA > dateB ? 1 : -1;
+    });
+
     let classes = "max-w-md space-y-6";
     export { classes as class };
 
@@ -52,9 +57,10 @@
         60000 - (now.getSeconds() * 1000 + now.getMilliseconds())
     );
 
-    function deleteDeparture(i: number) {
+    function deleteDeparture(timestamp: string, poi: string) {
         if (departures) {
-            departures = [...departures.slice(0, i), ...departures.slice(i + 1)];
+            let idx = departures.findIndex((dep) => dep.timestamp === timestamp && dep.poi === poi);
+            departures = [...departures.slice(0, idx), ...departures.slice(idx + 1)];
         }
     }
 
@@ -79,9 +85,27 @@
 
 <Tabs.Root value="list">
     <Tabs.List class="mb-4 w-full">
+        <Tabs.Trigger value="list" class="w-full">Lähtöajat</Tabs.Trigger>
         <Tabs.Trigger value="form" class="w-full">Lisää aika</Tabs.Trigger>
-        <Tabs.Trigger value="list" class="w-full">Lista</Tabs.Trigger>
     </Tabs.List>
+    <Tabs.Content value="list">
+        {#if departures}
+            <ul class="flex flex-col gap-3 p-2">
+                {#each departuresSorted as { timestamp, poi, id }, i (id)}
+                    <li class="w-full rounded-md border-[1px] border-gray-400 bg-slate-100 p-3">
+                        <DepartureItem
+                            {timestamp}
+                            {poi}
+                            on:delete={() => deleteDeparture(timestamp, poi)}
+                            on:undoDelete={(e) => undoDelete(timestamp, poi)}
+                        />
+                    </li>
+                {/each}
+            </ul>
+        {:else}
+            <div>Failed to fetch departures</div>
+        {/if}
+    </Tabs.Content>
     <Tabs.Content value="form">
         <form use:enhance class={classes} method="POST" action="/api/departure">
             <TimeInput
@@ -113,23 +137,5 @@
                 <Send size="1.1em" />
             </Button>
         </form>
-    </Tabs.Content>
-    <Tabs.Content value="list">
-        {#if departures}
-            <ul class="flex flex-col gap-3 p-2">
-                {#each departuresWithId as { timestamp, poi, id }, i (id)}
-                    <li class="w-full rounded-md border-[1px] border-gray-400 bg-slate-100 p-3">
-                        <DepartureItem
-                            {timestamp}
-                            {poi}
-                            on:delete={() => deleteDeparture(i)}
-                            on:undoDelete={(e) => undoDelete(timestamp, poi)}
-                        />
-                    </li>
-                {/each}
-            </ul>
-        {:else}
-            <div>Failed to fetch departures</div>
-        {/if}
     </Tabs.Content>
 </Tabs.Root>

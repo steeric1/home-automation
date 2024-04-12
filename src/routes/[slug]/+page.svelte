@@ -10,6 +10,10 @@
     export let data: PageServerData;
 </script>
 
+<svelte:head>
+    <title>Kotiautomaatio</title>
+</svelte:head>
+
 <div class="m-4 space-y-6 text-base">
     <h1 class="text-4xl font-bold tracking-wide">Kotiautomaatio</h1>
     <hr class=" border-gray-400" />

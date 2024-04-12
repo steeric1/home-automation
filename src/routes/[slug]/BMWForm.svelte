@@ -18,6 +18,8 @@
     export let form: PageForm;
     export let departures: Departure[] | null;
 
+    console.log(departures);
+
     $: departuresWithId =
         departures?.map((dep) => {
             return { id: Math.floor(Math.random() * 1e9), ...dep };
